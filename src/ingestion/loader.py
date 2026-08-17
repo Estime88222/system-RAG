@@ -78,12 +78,3 @@ def load_document_from_directory(raw_dir: str ="data/raw") -> list[Document]:
     # Renvoie la grande liste finale contenant l'intégralité des textes extraits
     return all_documents
 
-if __name__ == "__main__":
-    # Test rapide en exécutant directement ce fichier
-    docs = load_document_from_directory("data/raw")
-    if docs:
-        print("\n--- Aperçu du premier document ---")
-        #print(f"Contenu (200 premiers caractères) : {docs[0].page_content[:200]}")
-        for document in docs :
-            print(document)
-        print(f"Métadonnées : {docs[0].metadata}")
