@@ -1,4 +1,5 @@
 from ingestion import load_document_from_directory, split_documents, embed_chunks
+from vectorstore import get_collection_count, index_chunks
 
 if __name__ == "__main__":
 
@@ -25,5 +26,11 @@ if __name__ == "__main__":
         print("\n--- Aperçu du premier vecteur ---")
         print(f"5 premières valeurs : {vectors[0][:5]}")
         print(f"Dimension totale : {len(vectors[0])}")
+
+    if docs:
+            chunks = split_documents(docs)
+            index_chunks(chunks)
+    
+            print(f"\n--- Total dans la collection : {get_collection_count()} vecteur(s) ---")
 
    

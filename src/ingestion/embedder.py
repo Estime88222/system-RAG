@@ -5,30 +5,26 @@ Utilise l'API OpenAI (text-embedding-3-small) via langchain-openai.
 
 import os
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 
 load_dotenv()
 
-# Modèle d'embedding OpenAI
-# "text-embedding-3-small" = bon rapport coût/performance, 1536 dimensions
-EMBEDDING_MODEL = "text-embedding-3-small"
+# Modèle d'embedding Ollama
+EMBEDDING_MODEL = "nomic-embed-text"
 
 
-def get_embedder() -> OpenAIEmbeddings:
+def get_embedder() -> OllamaEmbeddings:
     """
     Retourne l'objet embedder configuré.
     Centralise la config ici pour ne la changer qu'à un seul endroit
     si tu veux changer de modèle plus tard.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
+     
+    if not os.getenv("OPENAI_API_KEY"):
         raise ValueError("OPENAI_API_KEY manquante dans le fichier .env")
 
-    return OpenAIEmbeddings(
-        model=EMBEDDING_MODEL,
-        api_key=api_key,
-    )
+    return OllamaEmbeddings(model=EMBEDDING_MODEL)
 
 
 def embed_chunks(chunks: list[Document]) -> list[list[float]]:

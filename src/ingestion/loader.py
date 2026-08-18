@@ -77,4 +77,3 @@ def load_document_from_directory(raw_dir: str ="data/raw") -> list[Document]:
 
     # Renvoie la grande liste finale contenant l'intégralité des textes extraits
     return all_documents
-
