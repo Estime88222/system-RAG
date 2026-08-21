@@ -1,36 +1,37 @@
-from ingestion import load_document_from_directory, split_documents, embed_chunks
-from vectorstore import get_collection_count, index_chunks
+"""
+Point d'entrée principal : orchestre le pipeline RAG complet.
+Question → Recherche → Contexte → Génération DeepSeek → Réponse
+"""
+
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent))
+
+from retrieval.search import search_similar_chunks, format_context
+from generation.llm_client import generate_answer
+
+
+def ask(question: str, top_k: int = 5) -> str:
+    """
+    Fonction principale du RAG : prend une question, retourne une réponse
+    ancrée dans les documents indexés.
+    """
+    # 1. Recherche des chunks pertinents
+    chunks = search_similar_chunks(question, k=top_k)
+
+    if not chunks:
+        return "Je n'ai trouvé aucune information pertinente dans ma base de connaissances."
+
+    # 2. Formatage du contexte
+    context = format_context(chunks)
+
+    # 3. Génération de la réponse via DeepSeek
+    answer = generate_answer(context, question)
+
+    return answer
+
 
 if __name__ == "__main__":
-
-    docs = load_document_from_directory("data/raw")
-
-    if docs:
-        print("\n--- Aperçu du premier document ---")
-        #print(f"Contenu (200 premiers caractères) : {docs[0].page_content[:200]}")
-        total_chars = sum(len(doc.page_content) for doc in docs)
-        print(f"Total characters: {total_chars}")
-        print(f"Métadonnées : {docs[0].metadata}")
-    
-    if docs:
-        chunks = split_documents(docs)
-
-        print("\n--- Aperçu du premier chunk ---")
-        print(f"Contenu : {chunks[0].page_content}")
-        print(f"Métadonnées : {chunks[0].metadata}")   
-
-    if docs:
-        chunks = split_documents(docs)
-        vectors = embed_chunks(chunks)
-
-        print("\n--- Aperçu du premier vecteur ---")
-        print(f"5 premières valeurs : {vectors[0][:5]}")
-        print(f"Dimension totale : {len(vectors[0])}")
-
-    if docs:
-            chunks = split_documents(docs)
-            index_chunks(chunks)
-    
-            print(f"\n--- Total dans la collection : {get_collection_count()} vecteur(s) ---")
-
-   
+    question = input("Pose ta question : ")
+    reponse = ask(question)
+    print(f"\n--- Réponse ---\n{reponse}")

@@ -6,7 +6,7 @@ Support : PDF, TXT, DOCX, CSV
 import os 
 from pathlib import Path 
 # importation des outils de spécification de Langchain pour lire chaque type de fichier
-from langchain_community.document_loaders import(PyPDFLoader, TextLoader, Docx2txtLoader, CSVLoader) 
+from langchain_community.document_loaders import(PyPDFLoader, TextLoader, Docx2txtLoader, CSVLoader, UnstructuredExcelLoader) 
 # importation de la structure de données standardisée de langchain 
 from langchain_core.documents import Document
 
@@ -16,6 +16,7 @@ LOADER_MAPING = {
     ".txt": TextLoader,
     ".docx": Docx2txtLoader,
     ".csv": CSVLoader,
+    ".xlsx": UnstructuredExcelLoader,
 }
 
 def load_single_document(file_path: str) -> list[Document]:
