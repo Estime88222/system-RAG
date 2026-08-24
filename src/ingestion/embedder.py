@@ -1,6 +1,6 @@
 """
 Module de génération des embeddings à partir des chunks.
-Utilise l'API OpenAI (text-embedding-3-small) via langchain-openai.
+Utilise l'outil ollamaembeding via langchain-ollama.
 """
 
 import os
@@ -20,12 +20,11 @@ def get_embedder() -> OllamaEmbeddings:
     Centralise la config ici pour ne la changer qu'à un seul endroit
     si tu veux changer de modèle plus tard.
     """
-     
-    if not os.getenv("OPENAI_API_KEY"):
-        raise ValueError("OPENAI_API_KEY manquante dans le fichier .env")
-
+    #if not os.getenv("OPENAI_API_KEY"):
+        #raise ValueError("OPENAI_API_KEY manquante dans le fichier .env")
+    
     return OllamaEmbeddings(model=EMBEDDING_MODEL)
-
+    
 
 def embed_chunks(chunks: list[Document]) -> list[list[float]]:
     """

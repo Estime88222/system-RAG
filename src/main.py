@@ -9,6 +9,8 @@ sys.path.append(str(Path(__file__).parent))
 
 from retrieval.search import search_similar_chunks, format_context
 from generation.llm_client import generate_answer
+from ingestion.ingestionpipeline import run_ingestion
+
 
 
 def ask(question: str, top_k: int = 5) -> str:
@@ -32,6 +34,9 @@ def ask(question: str, top_k: int = 5) -> str:
 
 
 if __name__ == "__main__":
+
+    run_ingestion()
+
     question = input("Pose ta question : ")
     reponse = ask(question)
     print(f"\n--- Réponse ---\n{reponse}")

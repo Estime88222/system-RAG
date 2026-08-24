@@ -1,1 +1,1 @@
-from .indexer import index_chunks, get_collection_count
+#from .indexer import index_chunks, get_collection_count, index_if_needed
