@@ -12,10 +12,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 from ingestion.loader import load_document_from_directory
 from ingestion.splitter import split_documents
 from vectorstore.indexer import index_if_needed, index_chunks
+from ingestion.web_scraper import load_website, save_documents_to_folder
+#url à scanner pour recuperer les données du site
+WEB_SOURCE = ["https://mini-app-telegram-test-xi.vercel.app"]
 
 
 def run_ingestion(
     raw_dir: str = "data/raw",
+    web_source: list[str]| None = None,
     force: bool = False,
 ) -> None:
     """
@@ -26,41 +30,34 @@ def run_ingestion(
     """
     print("=== Démarrage de l'ingestion ===")
 
-    # 1. Chargement
-    docs = load_document_from_directory(raw_dir)
-    if not docs:
-        print("Aucun document trouvé, ingestion annulée.")
-        return
+    if web_source is None:
+        web_source = WEB_SOURCE
+
+    all_docs=[]
+
+    
+
+    #2. chargement du contenu web 
+    for url in web_source:
+        docs_web = load_website(url, max_depth=3)
+        if docs_web:
+            save_documents_to_folder(docs_web,raw_dir)
+    
+    #Chargement des fichier 
+    all_docs = load_document_from_directory(raw_dir)
+    
+
+    if not all_docs :
+        print("aucun document trouvé ni en local ni sur le web, ingestion annulé ")
+        return 
 
     # 2. Découpage
-    chunks = split_documents(docs)
+    chunks = split_documents(all_docs)
 
     # 3. Indexation (uniquement si nécessaire, sauf si force=True)
     index_if_needed(chunks, force=force)
 
     print("=== Ingestion terminée ===")
-
-
-def run_web_ingestion(url: str, max_depth: int = 2) -> None:
-    """
-    Pipeline d'ingestion dédié au contenu web (utilise web_loader.py).
-    Toujours indexé directement (pas de vérification is_first_run,
-    car on veut pouvoir ajouter du contenu web à volonté).
-    """
-    from ingestion.web_scraper import load_website
-
-    print(f"=== Ingestion web depuis {url} ===")
-
-    docs = load_website(url, max_depth=max_depth)
-    if not docs:
-        print("Aucune page trouvée, ingestion annulée.")
-        return
-
-    chunks = split_documents(docs)
-    index_chunks(chunks)
-
-    print("=== Ingestion web terminée ===")
-
 
 if __name__ == "__main__":
     run_ingestion()

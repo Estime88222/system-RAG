@@ -60,28 +60,31 @@ def load_website(base_url: str,max_depth: int = 2,exclude_dirs: list[str] | None
     for doc in documents:
         # Ajoute le type de source pour pouvoir filtrer plus tard par 'web', 'pdf', ou 'database' dans le RAG
         doc.metadata["source_type"] = "web"
+
         # Standardise la clé contenant l'URL d'origine de la page pour le référencement des sources
         doc.metadata["source_file"] = doc.metadata.get("source", base_url)
 
-    # Affiche un message de confirmation dans la console avec le volume de pages récupérées
     print(f"✓ {len(documents)} page(s) web chargée(s) depuis {base_url}")
 
     # Retourne la liste finale des documents prêts à être découpés (chunking)
     return documents
 
 
-def save_documents_to_folder(documents: list[Document], folder_path: str):
+def save_documents_to_folder(documents: list[Document], folder_path: str = "data/processed"):
     """
     Crée un dossier et sauvegarde chaque document dans un fichier JSON individuel.
     """
     # Crée le dossier s'il n'existe pas déjà
     
-    folder_path = "data/raw"
+    os.makedirs(folder_path, exist_ok=True)
+
     for index, doc in enumerate(documents):
         # Récupère l'URL de la page
         url = doc.metadata.get("source", f"page_{index}")
+
         # Nettoie l'URL pour en faire un nom de fichier valide (remplace les caractères spéciaux par _)
         safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '_', url)
+
         # Limite la longueur du nom de fichier pour éviter les erreurs système
         safe_filename = safe_filename[-150:] + ".json"
         
@@ -99,15 +102,3 @@ def save_documents_to_folder(documents: list[Document], folder_path: str):
             json.dump(data_to_save, f, ensure_ascii=False, indent=4)
             
     print(f"📁 Tous les documents ({len(documents)}) ont été stockés dans le dossier : '{folder_path}'")
-
-
-if __name__ == "__main__":
-    test_url = "https://mini-app-telegram-test-xi.vercel.app"
-    
-    # 1. Extraction des documents depuis le site web
-    docs = load_website(test_url, max_depth=2)
-
-    if docs:
-        # 2. Stockage de chaque document dans un dossier dédié
-        nom_dossier_destination = "data_site_web"
-        save_documents_to_folder(docs, nom_dossier_destination)
