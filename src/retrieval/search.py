@@ -57,3 +57,12 @@ def format_context(chunks: list[Document]) -> str:
         context_parts.append(f"[Extrait {i} — source: {source}]\n{chunk.page_content}")
 
     return "\n\n".join(context_parts)    
+
+def get_branding_context(k: int = 3) -> str:
+    """" Récupère systématiquement quelques chunks du document de branding,
+    indépendamment de la question posée — pour garantir que le ton
+    de marque soit toujours présent dans le contexte du LLM.
+    """
+    vectorstore = get_vectorstore()
+    results = vectorstore.similarity_search(query="ton style indentité", k=k, filter={"doc-type": "BRAND_BOOK_TARA_2026-08-17_v2.5.pdf"},) 
+    return format_context(results)

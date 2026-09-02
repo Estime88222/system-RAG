@@ -5,6 +5,7 @@ Système de Retrieval-Augmented Generation (RAG) permettant d'interroger une bas
 ## Objectif
 
 Ce projet met en place un pipeline RAG complet :
+
 1. Ingestion et découpage de documents
 2. Vectorisation et stockage local dans une base vectorielle
 3. Recherche par similarité sémantique
@@ -17,7 +18,7 @@ Ce projet met en place un pipeline RAG complet :
 ## Stack technique retenue (état final)
 
 | Composant | Outil retenu | Alternatives testées / écartées |
-|---|---|---|
+| --- | --- | --- |
 | Orchestration | LangChain | — |
 | Chargement de documents | LangChain Document Loaders (PDF, TXT, DOCX, CSV) | — |
 | Chunking | `RecursiveCharacterTextSplitter` | — |
@@ -71,9 +72,11 @@ pip install beautifulsoup4
 ### Outils système
 
 - **Ollama** — installé en local pour les embeddings (et testé pour la génération)
+
   ```bash
   ollama pull nomic-embed-text
   ```
+
 - **Docker Desktop** — utilisé temporairement pour héberger PostgreSQL + pgvector (option finalement abandonnée au profit de Chroma)
 
 ---
@@ -106,7 +109,7 @@ Une étude comparative (Chroma, pgvector, Qdrant, Weaviate, Milvus, Pinecone) a 
 ## Problèmes rencontrés, causes et solutions
 
 | # | Problème | Cause | Solution appliquée |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `ERREUR : l'extension « vector » n'est pas disponible` | pgvector n'est pas installé nativement avec l'installeur PostgreSQL officiel (EDB) sur Windows | Utilisation d'une image Docker officielle `pgvector/pgvector`, incluant l'extension préinstallée |
 | 2 | `FATAL: authentification par mot de passe échouée` (PostgreSQL) | Conflit de port : le PostgreSQL natif (Windows, service `postgresql-x64-18`) et le conteneur Docker écoutaient tous deux sur le port `5432` — le service natif interceptait les connexions à la place du conteneur | Diagnostic via `Get-Service -Name postgresql*` ; changement du port du conteneur (`5433`) puis, finalement, abandon de PostgreSQL au profit de Chroma pour supprimer toute dépendance réseau |
 | 3 | `openai.RateLimitError: insufficient_quota` | Compte OpenAI sans moyen de paiement actif (embeddings) | Migration vers Ollama (`nomic-embed-text`), solution locale et gratuite |
@@ -179,6 +182,10 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 
 ---
 
+## Sécurité
+
+### 
+
 ## Utilisation
 
 ### 1. Ajouter des documents
@@ -202,8 +209,6 @@ python -m src.main
 ```bash
 uvicorn api.app:app --reload --port 8000
 ```
-
-Documentation interactive disponible sur `http://localhost:8000/docs`.
 
 ---
 

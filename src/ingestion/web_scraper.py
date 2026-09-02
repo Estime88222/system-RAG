@@ -70,7 +70,7 @@ def load_website(base_url: str,max_depth: int = 2,exclude_dirs: list[str] | None
     return documents
 
 
-def save_documents_to_folder(documents: list[Document], folder_path: str = "data/processed"):
+def save_documents_to_folder(documents: list[Document], folder_path: str = "data/raw"):
     """
     Crée un dossier et sauvegarde chaque document dans un fichier JSON individuel.
     """
@@ -86,7 +86,7 @@ def save_documents_to_folder(documents: list[Document], folder_path: str = "data
         safe_filename = re.sub(r'[^a-zA-Z0-9_-]', '_', url)
 
         # Limite la longueur du nom de fichier pour éviter les erreurs système
-        safe_filename = safe_filename[-150:] + ".json"
+        safe_filename = safe_filename[-150:] + ".txt"
         
         # Construit le chemin complet du fichier (ex: mon_dossier/https___site_com_page.json)
         file_path = os.path.join(folder_path, safe_filename)

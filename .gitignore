@@ -7,6 +7,10 @@ __pycache__/
 *.so
 
 
+#ignor the data folder 
+data/
+
+
 # Distribution / packaging
 .Python
 build/

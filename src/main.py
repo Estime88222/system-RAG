@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent))
 
-from retrieval.search import search_similar_chunks, format_context
+from retrieval.search import search_similar_chunks, format_context, get_branding_context
 from generation.llm_client import generate_answer
 from ingestion.ingestionpipeline import run_ingestion
 
@@ -27,8 +27,12 @@ def ask(question: str, top_k: int = 5) -> str:
     # 2. Formatage du contexte
     context = format_context(chunks)
 
+    branding_context = get_branding_context(k=3)
+
+    full_context = f"{branding_context}\n\n{context}"
+
     # 3. Génération de la réponse via DeepSeek
-    answer = generate_answer(context, question)
+    answer = generate_answer(full_context, question)
 
     return answer
 
