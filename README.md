@@ -184,7 +184,7 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 
 ## Sécurité
 
-### 
+###
 
 ## Utilisation
 

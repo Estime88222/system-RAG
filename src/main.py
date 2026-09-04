@@ -1,13 +1,13 @@
 """
 Point d'entrée principal : orchestre le pipeline RAG complet.
-Question → Recherche → Contexte → Génération DeepSeek → Réponse
+Question → Recherche → Contexte (+ Navigation) → Génération → Réponse
 """
 
 from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent))
 
-from retrieval.search import search_similar_chunks, format_context, get_branding_context
+from retrieval.search import search_similar_chunks, format_context, get_branding_context, format_navigation_from_chunks
 from generation.llm_client import generate_answer
 from ingestion.ingestionpipeline import run_ingestion
 
@@ -17,6 +17,14 @@ def ask(question: str, top_k: int = 5) -> str:
     """
     Fonction principale du RAG : prend une question, retourne une réponse
     ancrée dans les documents indexés.
+    
+    Pipeline:
+    1. Recherche des chunks pertinents
+    2. Extraction du contexte de contenu
+    3. Extraction des infos de navigation pour guider l'utilisateur
+    4. Récupération du brand-book pour le ton
+    5. Construction du contexte enrichi
+    6. Génération de la réponse
     """
     # 1. Recherche des chunks pertinents
     chunks = search_similar_chunks(question, k=top_k)
@@ -24,14 +32,28 @@ def ask(question: str, top_k: int = 5) -> str:
     if not chunks:
         return "Je n'ai trouvé aucune information pertinente dans ma base de connaissances."
 
-    # 2. Formatage du contexte
-    context = format_context(chunks)
+    # 2. Formatage du contenu
+    content_context = format_context(chunks)
 
+    # 3. Extraction des infos de navigation (pour guider l'utilisateur)
+    navigation_context = format_navigation_from_chunks(chunks)
+    
+    # 4. Récupération du brand-book (ton de marque)
     branding_context = get_branding_context(k=3)
 
-    full_context = f"{branding_context}\n\n{context}"
+    # 5. Construction du contexte enrichi
+    # Ordre: brand-book → navigation → contenu
+    full_context = f"{branding_context}\n\n"
+    
+    if navigation_context:
+        full_context += "=== INFORMATIONS DE NAVIGATION ===\n"
+        full_context += navigation_context
+        full_context += "\n\n"
+    
+    full_context += "=== CONTENU PERTINENT ===\n"
+    full_context += content_context
 
-    # 3. Génération de la réponse via DeepSeek
+    # 6. Génération de la réponse via LLM
     answer = generate_answer(full_context, question)
 
     return answer

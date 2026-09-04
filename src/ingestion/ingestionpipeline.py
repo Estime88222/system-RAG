@@ -14,7 +14,7 @@ from ingestion.splitter import split_documents
 from vectorstore.indexer import index_if_needed, index_chunks
 from ingestion.web_scraper import load_website, save_documents_to_folder
 #url à scanner pour recuperer les données du site
-WEB_SOURCE = ["https://taramoney.com/"]
+WEB_SOURCE = ["https://taramoney.com/app/"]
 
 
 def run_ingestion(
