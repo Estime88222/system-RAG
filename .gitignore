@@ -158,6 +158,7 @@ activemq-data/
 .venv
 env/
 venv/
+data/auth/storage_state.json
 ENV/
 env.bak/
 venv.bak/

@@ -38,18 +38,183 @@ def clean_html(html: str) -> str:
     return "\n".join(lines)
 
 
+def is_scrapable_url(url: str, include_authenticated: bool = True) -> bool:
+    """Vérifie si une URL est exploitable pour le scraping public ou authentifié."""
+    if not url:
+        return False
+
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+
+    blocked_segments = [
+        "/api",
+        "/_next",
+        "/static",
+        "/assets",
+        "/media",
+        "/favicon",
+        "/manifest",
+        "/robots.txt",
+        "/sitemap",
+    ]
+
+    if any(path.startswith(block) for block in blocked_segments):
+        return False
+
+    if not include_authenticated:
+        private_segments = [
+            "/app",
+            "/login",
+            "/logout",
+            "/auth",
+            "/account",
+            "/dashboard",
+            "/collections",
+        ]
+        if any(path.startswith(block) for block in private_segments):
+            return False
+
+        if "login" in path or "auth" in path or "app" in path:
+            return False
+
+    return True
+
+
+def is_public_content_url(url: str) -> bool:
+    """Conserve uniquement le contenu public, pour compatibilité avec l'ancien appelant."""
+    return is_scrapable_url(url, include_authenticated=False)
+
+
+def save_authenticated_session(
+    login_url: str,
+    storage_state_path: str = "data/auth/storage_state.json",
+) -> None:
+    """Ouvre le login, puis sauvegarde la session après connexion manuelle."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise RuntimeError(
+            "Playwright est requis: pip install playwright puis playwright install chromium"
+        ) from exc
+
+    os.makedirs(os.path.dirname(storage_state_path) or ".", exist_ok=True)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=False)
+        page = browser.new_page()
+        page.goto(login_url, wait_until="domcontentloaded")
+        input("Connectez-vous dans le navigateur, puis appuyez sur Entrée ici... ")
+        page.context.storage_state(path=storage_state_path)
+        browser.close()
+    print(f"✓ Session authentifiée sauvegardée dans '{storage_state_path}'")
+
+
+def load_authenticated_website(
+    urls: list[str],
+    storage_state_path: str = "data/auth/storage_state.json",
+    max_depth: int = 2,
+) -> list[Document]:
+    """Crawl des pages publiques et privées avec une session navigateur persistée."""
+    if not os.path.isfile(storage_state_path):
+        raise FileNotFoundError(
+            f"Session absente: {storage_state_path}. "
+            "Exécutez save_authenticated_session() avant le crawl."
+        )
+
+    try:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise RuntimeError(
+            "Playwright est requis: pip install playwright puis playwright install chromium"
+        ) from exc
+
+    documents: list[Document] = []
+    visited: set[str] = set()
+    queue: list[tuple[str, int]] = [(url, 0) for url in urls]
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(storage_state=storage_state_path)
+
+        while queue:
+            current_url, depth = queue.pop(0)
+            normalized_url = current_url.split("#", 1)[0].rstrip("/") or current_url
+            if normalized_url in visited or depth > max_depth:
+                continue
+            if not is_scrapable_url(normalized_url, include_authenticated=True):
+                continue
+            visited.add(normalized_url)
+
+            page = context.new_page()
+            try:
+                try:
+                    response = page.goto(
+                        normalized_url,
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                except PlaywrightTimeoutError:
+                    # Certaines SPA ne terminent jamais complètement leur navigation.
+                    response = None
+                    if not page.url:
+                        continue
+                try:
+                    page.get_by_text("Loading...", exact=True).wait_for(
+                        state="hidden",
+                        timeout=15000,
+                    )
+                except PlaywrightTimeoutError:
+                    pass
+                if response is None or response.status >= 400:
+                    if not page.url:
+                        continue
+                final_url = page.url
+                final_path = urlparse(final_url).path.lower()
+                if "/login" in final_path or "/auth" in final_path:
+                    print(f"⚠️ Session expirée ou refusée pour {normalized_url}")
+                    continue
+
+                html = page.content()
+                text = clean_html(html)
+                if not text:
+                    continue
+
+                structure = extract_page_structure(html, final_url, normalized_url)
+                metadata = {
+                    "source": final_url,
+                    "source_type": "web_authenticated",
+                    "source_file": final_url,
+                    "page_structure": {
+                        "title": structure["title"],
+                        "type": structure["page_type"],
+                    },
+                    "sections": structure["sections"],
+                    "internal_links": structure["internal_links"][:10],
+                    "cta_buttons": structure["cta_buttons"],
+                    "breadcrumbs": structure["breadcrumbs"],
+                    "nav_menu": structure["nav_menu"],
+                }
+                documents.append(Document(page_content=text, metadata=metadata))
+
+                if depth < max_depth:
+                    for link in structure["internal_links"]:
+                        link_url = link["url"]
+                        if urlparse(link_url).netloc == urlparse(normalized_url).netloc:
+                            queue.append((link_url, depth + 1))
+            finally:
+                page.close()
+
+        context.close()
+        browser.close()
+
+    print(f"✓ {len(documents)} page(s) authentifiée(s) chargée(s)")
+    return documents
+
+
 def extract_page_structure(html: str, page_url: str, base_url: str) -> dict:
     """
     Extrait la structure, la navigation et le contexte d'une page HTML.
     Retourne un dictionnaire riche avec informations de navigation et d'aide.
-    
-    Infos capturées:
-    - Titre principal (H1)
-    - Hiérarchie des headings (structure)
-    - Type de page (accueil, service, contact, etc.)
-    - Navigation (menus, breadcrumbs, liens internes)
-    - Appels à l'action (boutons)
-    - Sections principales
     """
     soup = BeautifulSoup(html, "html.parser")
     
@@ -199,6 +364,10 @@ def load_website(base_url: str, max_depth: int = 2, exclude_dirs: list[str] | No
 
     # Déclenche le crawling et télécharge toutes les pages correspondantes
     documents = loader.load()
+    documents = [
+        doc for doc in documents
+        if is_public_content_url(str(doc.metadata.get("source", "")))
+    ]
 
     # Enrichissement de chaque document avec infos de structure et navigation
     for doc in documents:
@@ -240,23 +409,6 @@ def save_documents_to_folder(documents: list[Document], folder_path: str = "data
     """
     Crée un dossier et sauvegarde chaque document dans un fichier JSON individuel.
     Inclut toutes les métadonnées enrichies (structure, navigation, sections, etc.)
-    
-    Format du fichier JSON:
-    {
-        "page_content": "...",
-        "page_info": {
-            "title": "...",
-            "page_type": "...",
-            "url": "..."
-        },
-        "navigation": {
-            "sections": [...],
-            "internal_links": [...],
-            "cta_buttons": [...],
-            "nav_menu": [...]
-        },
-        "metadata": {...}
-    }
     """
     # Crée le dossier s'il n'existe pas déjà
     os.makedirs(folder_path, exist_ok=True)

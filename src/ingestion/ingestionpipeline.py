@@ -12,10 +12,20 @@ sys.path.append(str(Path(__file__).parent.parent))
 from ingestion.loader import load_document_from_directory
 from ingestion.splitter import split_documents
 from vectorstore.indexer import index_if_needed, index_chunks
-from ingestion.web_scraper import load_website, save_documents_to_folder
-#url à scanner pour recuperer les données du site
-WEB_SOURCE = ["https://taramoney.com/app/"]
+from ingestion.web_scraper import (
+    load_authenticated_website,
+    load_website,
+    save_documents_to_folder,
+)
 
+# Cibler la zone publique du site uniquement.
+# Les pages /app, /login, /collections sont des écrans d'authentification / shell applicatif,
+# et ne contiennent pas les informations utiles pour guider les utilisateurs.
+WEB_SOURCE = ["https://taramoney.com"]
+AUTHENTICATED_WEB_SOURCE = [
+    "https://taramoney.com/app",
+    "https://taramoney.com/app/collections",
+]
 
 def run_ingestion(
     raw_dir: str = "data/raw",
@@ -35,7 +45,15 @@ def run_ingestion(
 
     all_docs=[]
 
-    
+    storage_state_path = "data/auth/storage_state.json"
+    if Path(storage_state_path).is_file():
+        docs_authenticated = load_authenticated_website(
+            AUTHENTICATED_WEB_SOURCE,
+            storage_state_path=storage_state_path,
+            max_depth=3,
+        )
+        if docs_authenticated:
+            save_documents_to_folder(docs_authenticated, raw_dir)
 
     #2. chargement du contenu web 
     for url in web_source:

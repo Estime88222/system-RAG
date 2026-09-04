@@ -119,6 +119,10 @@ Une étude comparative (Chroma, pgvector, Qdrant, Weaviate, Milvus, Pinecone) a 
 | 7 | `openai.NotFoundError: 404 - model_not_found` (Groq) | Modèle `llama-3.3-70b-versatile` déprécié par Groq en cours de projet | Migration vers le modèle recommandé en remplacement : `openai/gpt-oss-120b` |
 | 8 | `ImportError: cannot import name 'rerank_chunks' from 'retrieval'` | Le fichier `retrieval/__init__.py` réexportait explicitement certaines fonctions, mais n'avait pas été mis à jour après l'ajout de `reranker.py` | Import direct depuis les modules (`from retrieval.search import ...`, `from retrieval.reranker import ...`) plutôt que via `__init__.py`, pour éviter la désynchronisation |
 | 9 | `.env` mal interprété (mot de passe apparemment incorrect malgré une valeur juste) | Suspicion initiale d'un caractère invisible (retour chariot Windows `\r`) dans le fichier | Diagnostic par `repr()` de la variable chargée ; cause réelle finalement identifiée comme le conflit de port (problème #2), pas le fichier `.env` lui-même |
+| 10 | Le scraper récupérait seulement la page de login au lieu du dashboard et des collections | `RecursiveUrlLoader` utilisait des requêtes HTTP sans cookies ni session utilisateur ; les routes privées redirigeaient donc vers `/auth/login` | Utilisation de Playwright avec connexion manuelle et sauvegarde de la session dans `data/auth/storage_state.json` |
+| 11 | Les routes `/app`, `/dashboard` et `/collections` étaient ignorées | `is_public_content_url()` bloquait explicitement les chemins privés, alors qu'ils sont nécessaires pour guider l'utilisateur connecté | Ajout d'un filtre distinct pour le crawl authentifié (`is_scrapable_url(..., include_authenticated=True)`) tout en conservant le filtrage public |
+| 12 | Les pages privées contenaient seulement `Loading...` ou un texte très court | L'application est une SPA : le HTML initial est chargé avant le rendu JavaScript et `networkidle` peut ne jamais être atteint | Crawl avec Playwright, attente de la disparition de `Loading...`, puis extraction du DOM rendu |
+| 13 | Le crawl échouait avec un timeout `networkidle` | Certaines connexions réseau de l'application restent ouvertes en permanence | Remplacement de l'attente `networkidle` par `domcontentloaded`, avec gestion tolérante des timeouts et vérification de l'URL finale |
 
 ---
 
@@ -209,6 +213,38 @@ python -m src.main
 ```bash
 uvicorn api.app:app --reload --port 8000
 ```
+
+### 5. Scraper les pages après connexion
+
+Les pages `dashboard`, `collections` et les autres routes privées nécessitent une
+session navigateur. Playwright ouvre le navigateur pour permettre une connexion
+manuelle, puis sauvegarde les cookies de session localement.
+
+Installer Playwright et Chromium :
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+Créer ou renouveler la session authentifiée :
+
+```bash
+python -c "from src.ingestion.web_scraper import save_authenticated_session; save_authenticated_session('https://taramoney.com/auth/login')"
+```
+
+Après la connexion dans le navigateur, appuyer sur Entrée dans le terminal. Le
+fichier `data/auth/storage_state.json` est créé automatiquement. Il est ignoré
+par Git et ne doit jamais être partagé.
+
+Relancer ensuite l'ingestion :
+
+```bash
+python -m src.ingestion.ingestionpipeline
+```
+
+Le pipeline indexe le contenu public et, si la session existe, les pages privées à
+partir de `/app` et `/app/collections`. Si la session expire, renouveler la session.
 
 ---
 
