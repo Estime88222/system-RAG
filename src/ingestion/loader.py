@@ -59,6 +59,11 @@ def load_document_from_directory(raw_dir: str ="data/raw") -> list[Document]:
         if not file_path.is_file():
             continue
 
+        # Le brand-book est indexé séparément avec son metadata `doc_type`.
+        # L'inclure ici le rendrait récupérable comme un document métier ordinaire.
+        if "branding" in {part.lower() for part in file_path.relative_to(raw_path).parts}:
+            continue
+
         ext = file_path.suffix.lower()
 
         # On ignore silencieusement les extensions non gérées (ni erreur, ni chargement)

@@ -53,17 +53,18 @@ def ask(question: str, top_k: int = 5) -> str:
     # 4. Récupération du brand-book (ton de marque)
     branding_context = get_branding_context(k=3)
 
-    # 5. Construction du contexte enrichi
-    # Ordre: brand-book → navigation → contenu
-    full_context = f"{branding_context}\n\n"
-    
-    if navigation_context:
-        full_context += "=== INFORMATIONS DE NAVIGATION ===\n"
-        full_context += navigation_context
-        full_context += "\n\n"
-    
-    full_context += "=== CONTENU PERTINENT ===\n"
+    # 5. Construction du contexte enrichi.
+    # Le contenu métier est prioritaire; le brand-book ne sert qu'à régler le ton.
+    full_context = "=== CONTENU PERTINENT ===\n"
     full_context += content_context
+
+    if navigation_context:
+        full_context += "\n\n=== INFORMATIONS DE NAVIGATION ===\n"
+        full_context += navigation_context
+
+    if branding_context:
+        full_context += "\n\n=== RÈGLES DE TON DE MARQUE, À APPLIQUER EN DERNIER ===\n"
+        full_context += branding_context
 
     # 6. Génération de la réponse via LLM
     answer = generate_answer(full_context, question)

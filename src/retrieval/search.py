@@ -13,6 +13,15 @@ from vectorstore.indexer import get_vectorstore
 
 # Nombre de candidats récupérés avant le reranking
 TOP_K = 15
+BRANDING_SOURCE_MARKER = "BRAND_BOOK_TARA"
+
+
+def _is_branding_chunk(chunk: Document) -> bool:
+    """Identifie le brand-book, y compris les anciens chunks sans doc_type."""
+    metadata = chunk.metadata
+    doc_type = str(metadata.get("doc_type", ""))
+    source = str(metadata.get("source_file", ""))
+    return BRANDING_SOURCE_MARKER in doc_type or BRANDING_SOURCE_MARKER in source
 
 
 def search_similar_chunks(query: str, k: int = TOP_K) -> list[Document]:
@@ -22,9 +31,10 @@ def search_similar_chunks(query: str, k: int = TOP_K) -> list[Document]:
     """
     vectorstore = get_vectorstore()
 
-    results = vectorstore.similarity_search(query, k=k)
+    candidates = vectorstore.similarity_search(query, k=max(k * 3, k))
+    results = [chunk for chunk in candidates if not _is_branding_chunk(chunk)][:k]
 
-    print(f"✓ {len(results)} chunk(s) trouvé(s) pour la requête : \"{query}\"")
+    print(f"✓ {len(results)} chunk(s) métier trouvé(s) pour la requête : \"{query}\"")
 
     return results
 
