@@ -7,10 +7,14 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent))
 
-from retrieval.search import search_similar_chunks, format_context, get_branding_context, format_navigation_from_chunks
+from retrieval.search import (
+    search_similar_chunks,
+    format_context,
+    get_branding_context,
+    format_navigation_from_chunks,
+)
 from generation.llm_client import generate_answer
 from ingestion.ingestionpipeline import run_ingestion
-
 
 
 def ask(question: str, top_k: int = 5) -> str:
@@ -26,8 +30,16 @@ def ask(question: str, top_k: int = 5) -> str:
     5. Construction du contexte enrichi
     6. Génération de la réponse
     """
-    # 1. Recherche des chunks pertinents
-    chunks = search_similar_chunks(question, k=top_k)
+    # 1. Récupérer un large groupe de candidats avant le reclassement.
+    candidate_k = max(top_k * 3, 15)
+    chunks = search_similar_chunks(question, k=candidate_k)
+
+    try:
+        from retrieval.reranker import rerank_chunks
+        chunks = rerank_chunks(question, chunks, top_n=top_k)
+    except (ImportError, ModuleNotFoundError) as exc:
+        print(f"⚠️ Reranking indisponible, recherche vectorielle utilisée : {exc}")
+        chunks = chunks[:top_k]
 
     if not chunks:
         return "Je n'ai trouvé aucune information pertinente dans ma base de connaissances."
@@ -61,7 +73,7 @@ def ask(question: str, top_k: int = 5) -> str:
 
 if __name__ == "__main__":
 
-    run_ingestion()
+    #run_ingestion()
 
     question = input("Pose ta question : ")
     reponse = ask(question)

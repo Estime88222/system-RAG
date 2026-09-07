@@ -38,6 +38,15 @@ def clean_html(html: str) -> str:
     return "\n".join(lines)
 
 
+NOM_HTML_EXTENSION =(".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".zip", ".rar", ".7z", ".tar", ".gz",
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico", ".bmp",
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".mp4", ".mp3", ".avi", ".mov", ".webm",
+    ".csv", ".json", ".xml", ".txt",
+    )
+
+
 def is_scrapable_url(url: str, include_authenticated: bool = True) -> bool:
     """Vérifie si une URL est exploitable pour le scraping public ou authentifié."""
     if not url:
@@ -45,6 +54,9 @@ def is_scrapable_url(url: str, include_authenticated: bool = True) -> bool:
 
     parsed = urlparse(url)
     path = parsed.path.lower()
+
+    if path.endswith(NOM_HTML_EXTENSION):
+        return False
 
     blocked_segments = [
         "/api",
@@ -341,7 +353,7 @@ def extract_page_structure(html: str, page_url: str, base_url: str) -> dict:
 
 def load_website(base_url: str, max_depth: int = 2, exclude_dirs: list[str] | None = None) -> list[Document]:
     """
-    Explore (crawl) un site web à partir d'une URL racine et retourne les pages
+    Explore un site web à partir d'une URL racine et retourne les pages
     découvertes sous forme d'une liste d'objets 'Document' LangChain.
     
     Enrichit chaque document avec :

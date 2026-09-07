@@ -25,6 +25,16 @@ WEB_SOURCE = ["https://taramoney.com"]
 AUTHENTICATED_WEB_SOURCE = [
     "https://taramoney.com/app",
     "https://taramoney.com/app/collections",
+    "https://taramoney.com/app/customers",
+    "https://taramoney.com/app/payments",
+    "https://taramoney.com/app/api-payments",
+    "https://taramoney.com/app/analytics",
+    "https://taramoney.com/app/partner/verification",
+    "https://taramoney.com/app/affiliation",
+    "https://taramoney.com/app/settings",
+    "https://taramoney.com/app/settings/plan",
+    "https://taramoney.com/app/settings/billing",
+    "https://taramoney.com/app/api",
 ]
 
 def run_ingestion(

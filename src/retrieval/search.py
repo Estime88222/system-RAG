@@ -11,8 +11,8 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from vectorstore.indexer import get_vectorstore
 
-# Nombre de chunks à récupérer par défaut
-TOP_K = 5
+# Nombre de candidats récupérés avant le reranking
+TOP_K = 15
 
 
 def search_similar_chunks(query: str, k: int = TOP_K) -> list[Document]:
@@ -55,7 +55,23 @@ def format_context(chunks: list[Document]) -> str:
 
     for i, chunk in enumerate(chunks, start=1):
         source = chunk.metadata.get("source_file", "source inconnue")
-        context_parts.append(f"[Extrait {i} — source: {source}]\n{chunk.page_content}")
+        url = chunk.metadata.get("source", "")
+        page_structure = _parse_serialized_metadata(chunk.metadata.get("page_structure"))
+        if not isinstance(page_structure, dict):
+            page_structure = {}
+        title = page_structure.get("title", "")
+        page_type = page_structure.get("type", "")
+        page_info = []
+        if title:
+            page_info.append(f"page: {title}")
+        if page_type:
+            page_info.append(f"type: {page_type}")
+        if url:
+            page_info.append(f"url: {url}")
+        location = f" — {' | '.join(page_info)}" if page_info else ""
+        context_parts.append(
+            f"[Extrait {i} — source: {source}{location}]\n{chunk.page_content}"
+        )
 
     return "\n\n".join(context_parts)
 
@@ -75,36 +91,34 @@ def format_navigation_from_chunks(chunks: list[Document]) -> str:
     Extrait et formate les informations de navigation à partir des métadonnées des chunks.
     Crée une section NAVIGATION_INFO que le LLM peut utiliser pour guider les utilisateurs.
     """
-    nav_info = None
-    page_title = None
-    page_type = None
+    nav_info = {
+        "sections": [],
+        "nav_menu": [],
+        "internal_links": [],
+        "cta_buttons": [],
+        "breadcrumbs": [],
+    }
+    page_title = ""
+    page_type = ""
+    page_url = ""
 
     for chunk in chunks:
         meta = chunk.metadata
         page_structure = _parse_serialized_metadata(meta.get("page_structure"))
-        if isinstance(page_structure, dict) and not nav_info:
-            page_title = str(page_structure.get("title", ""))
-            page_type = str(page_structure.get("type", ""))
+        if isinstance(page_structure, dict):
+            page_title = page_title or str(page_structure.get("title", ""))
+            page_type = page_type or str(page_structure.get("type", ""))
+        page_url = page_url or str(meta.get("source", ""))
 
-        if not nav_info:
-            sections = _parse_serialized_metadata(meta.get("sections", []))
-            nav_menu = _parse_serialized_metadata(meta.get("nav_menu", []))
-            internal_links = _parse_serialized_metadata(meta.get("internal_links", []))
-            cta_buttons = _parse_serialized_metadata(meta.get("cta_buttons", []))
-            breadcrumbs = _parse_serialized_metadata(meta.get("breadcrumbs", []))
+        for field in nav_info:
+            values = _parse_serialized_metadata(meta.get(field, []))
+            if not isinstance(values, list):
+                continue
+            for value in values:
+                if value not in nav_info[field]:
+                    nav_info[field].append(value)
 
-            nav_info = {
-                "sections": sections if isinstance(sections, list) else [],
-                "nav_menu": nav_menu if isinstance(nav_menu, list) else [],
-                "internal_links": internal_links if isinstance(internal_links, list) else [],
-                "cta_buttons": cta_buttons if isinstance(cta_buttons, list) else [],
-                "breadcrumbs": breadcrumbs if isinstance(breadcrumbs, list) else [],
-            }
-
-            if nav_info.get("nav_menu"):
-                break
-
-    if not nav_info or not any(nav_info.values()):
+    if not any(nav_info.values()) and not page_title and not page_url:
         return ""
 
     nav_parts: list[str] = []
@@ -114,6 +128,9 @@ def format_navigation_from_chunks(chunks: list[Document]) -> str:
 
     if page_title:
         nav_parts.append(f"📌 TITRE: {page_title}")
+
+    if page_url:
+        nav_parts.append(f"🔗 URL: {page_url}")
 
     sections = nav_info.get("sections", [])
     if isinstance(sections, list) and sections:

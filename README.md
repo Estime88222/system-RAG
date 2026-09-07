@@ -230,7 +230,7 @@ playwright install chromium
 Créer ou renouveler la session authentifiée :
 
 ```bash
-python -c "from src.ingestion.web_scraper import save_authenticated_session; save_authenticated_session('https://taramoney.com/auth/login')"
+py -c "from src.ingestion.web_scraper import save_authenticated_session; save_authenticated_session('https://taramoney.com/auth/login')"
 ```
 
 Après la connexion dans le navigateur, appuyer sur Entrée dans le terminal. Le
