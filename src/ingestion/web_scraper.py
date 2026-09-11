@@ -349,71 +349,94 @@ def extract_page_structure(html: str, page_url: str, base_url: str) -> dict:
     return structure
 
 
+# ...existing code...
 
+def load_website(
+    base_url: str,
+    max_depth: int = 2,
+    exclude_dirs: list[str] | None = None,
+) -> list[Document]:
+    """Explore un site rendu en JavaScript avec Playwright."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise RuntimeError(
+            "Playwright est requis : pip install playwright "
+            "puis playwright install chromium"
+        ) from exc
 
-def load_website(base_url: str, max_depth: int = 2, exclude_dirs: list[str] | None = None) -> list[Document]:
-    """
-    Explore un site web à partir d'une URL racine et retourne les pages
-    découvertes sous forme d'une liste d'objets 'Document' LangChain.
-    
-    Enrichit chaque document avec :
-    - Métadonnées de structure (titre, type de page)
-    - Navigation (menus, liens internes)
-    - Sections (hiérarchie H1>H2>H3)
-    - CTAs (appels à l'action)
-    - Breadcrumbs (fil d'Ariane)
-    """
-    # Configuration du chargeur récursif de LangChain
-    loader = RecursiveUrlLoader(
-        url=base_url,                  # Le point de départ de l'exploration du site
-        max_depth=max_depth,          # Nombre maximum de clics successifs à suivre depuis l'accueil
-        extractor=clean_html,         # La fonction de nettoyage appliquée au texte
-        prevent_outside=True,         # Reste strictement sur le domaine initial
-        exclude_dirs=exclude_dirs or [], # Chemins ou sous-dossiers spécifiques à ignorer
-        use_async=True,               # Active le téléchargement asynchrone (parallèle)
-        timeout=10,                   # Temps d'attente maximum en secondes par page
-    )
+    documents = []
+    visited = set()
+    queue = [(base_url, 0)]
 
-    # Déclenche le crawling et télécharge toutes les pages correspondantes
-    documents = loader.load()
-    documents = [
-        doc for doc in documents
-        if is_public_content_url(str(doc.metadata.get("source", "")))
-    ]
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
 
-    # Enrichissement de chaque document avec infos de structure et navigation
-    for doc in documents:
-        # Métadonnées de base
-        doc.metadata["source_type"] = "web"
-        doc.metadata["source_file"] = doc.metadata.get("source", base_url)
-        
-        # === ENRICHISSEMENT: Extraire la structure pour la navigation ===
-        # Note: Comme RecursiveUrlLoader nettoie déjà le HTML via clean_html(),
-        # on doit ré-charger le HTML brut pour extraire la structure.
-        # (Dans une version future, on pourrait modifier le loader pour conserver l'HTML brut)
-        try:
-            response = requests.get(doc.metadata.get("source", base_url), timeout=10)
-            if response.status_code == 200:
-                page_structure = extract_page_structure(response.text, doc.metadata.get("source", ""), base_url)
-                
-                # Ajouter la structure aux métadonnées
-                doc.metadata["page_structure"] = {
-                    "title": page_structure["title"],
-                    "type": page_structure["page_type"],
+        while queue:
+            current_url, depth = queue.pop(0)
+            normalized_url = current_url.split("#", 1)[0].rstrip("/")
+
+            if normalized_url in visited or depth > max_depth:
+                continue
+
+            if not is_public_content_url(normalized_url):
+                continue
+
+            if exclude_dirs and any(
+                directory in urlparse(normalized_url).path
+                for directory in exclude_dirs
+            ):
+                continue
+
+            visited.add(normalized_url)
+
+            try:
+                text, structure = load_rendered_page(page, normalized_url)
+
+                if not text or text.strip() == "Loading...":
+                    print(f"⚠️ Contenu vide : {normalized_url}")
+                    continue
+
+                metadata = {
+                    "source": normalized_url,
+                    "source_type": "web",
+                    "source_file": normalized_url,
+                    "page_structure": {
+                        "title": structure["title"],
+                        "type": structure["page_type"],
+                    },
+                    "sections": structure["sections"],
+                    "internal_links": structure["internal_links"][:10],
+                    "cta_buttons": structure["cta_buttons"],
+                    "breadcrumbs": structure["breadcrumbs"],
+                    "nav_menu": structure["nav_menu"],
                 }
-                doc.metadata["sections"] = page_structure["sections"]
-                doc.metadata["internal_links"] = page_structure["internal_links"][:10]  # Limiter à 10 liens
-                doc.metadata["cta_buttons"] = page_structure["cta_buttons"]
-                doc.metadata["breadcrumbs"] = page_structure["breadcrumbs"]
-                doc.metadata["nav_menu"] = page_structure["nav_menu"]
-        except Exception as e:
-            # Si l'extraction échoue, on continue sans ces métadonnées
-            print(f"⚠️  Impossible d'extraire la structure pour {doc.metadata.get('source', 'URL inconnue')}: {e}")
 
-    print(f"✓ {len(documents)} page(s) web chargée(s) depuis {base_url}")
-    print(f"  Enrichies avec: structure de page, navigation, sections, CTAs")
+                documents.append(
+                    Document(page_content=text, metadata=metadata)
+                )
 
-    # Retourne la liste finale des documents prêts à être découpés (chunking)
+                if depth < max_depth:
+                    for link in structure["internal_links"]:
+                        link_url = link["url"]
+                        if (
+                            urlparse(link_url).netloc
+                            == urlparse(normalized_url).netloc
+                        ):
+                            queue.append((link_url, depth + 1))
+
+                print(f"✓ Page chargée : {normalized_url}")
+
+            except Exception as exc:
+                print(f"⚠️ Erreur sur {normalized_url} : {exc}")
+
+        browser.close()
+
+    print(f"✓ {len(documents)} page(s) web chargée(s)")
     return documents
 
 
@@ -466,3 +489,48 @@ def save_documents_to_folder(documents: list[Document], folder_path: str = "data
     print(f"   ✓ Navigation (menus, liens internes, breadcrumbs)")
     print(f"   ✓ Appels à l'action (CTAs)")
     print(f"   ✓ Type de page (accueil, services, contact, etc.)")
+
+
+def load_rendered_page(page, url: str) -> tuple[str, dict]:
+    """Charge une page et extrait son HTML après rendu JavaScript complet."""
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+
+    try:
+        page.wait_for_function(
+            """() => {
+                const body = document.body.innerText;
+                return body && body.trim() !== 'Loading...' && body.length > 100;
+            }""",
+            timeout=60000,
+        )
+    except Exception:
+        print(f"⚠️ Le contenu n'a jamais dépassé l'état de chargement pour {url}")
+
+    html = page.content()
+    text = clean_html(html)
+    structure = extract_page_structure(html, page.url, url)
+    return text, structure
+
+# ...existing code...
+
+def debug_page(page, url: str) -> None:
+    page.on("console", lambda message: print(
+        f"[CONSOLE {message.type}] {message.text}"
+    ))
+
+    page.on("response", lambda response: (
+        print(f"[HTTP {response.status}] {response.url}")
+        if response.status >= 400 else None
+    ))
+
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(15000)
+
+    print("URL finale :", page.url)
+    print("Titre :", page.title())
+    print("Texte :", page.locator("body").inner_text()[:1000])
+
+    page.screenshot(
+        path="data/diaspora_debug.png",
+        full_page=True,
+    )

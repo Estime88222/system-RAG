@@ -183,6 +183,8 @@ def get_branding_context(k: int = 3) -> str:
     """" Récupère systématiquement quelques chunks du document de branding,
     indépendamment de la question posée — pour garantir que le ton
     de marque soit toujours présent dans le contexte du LLM.
+
+    -- à améliorer : on pourrait filtrer les chunks de branding pour ne garder que ceux qui sont pertinents pour le ton 
     """
     vectorstore = get_vectorstore()
     # CORRECTION : utiliser doc_type (underscore) pour correspondre à la métadonnée définie dans ingetion_branding.py
@@ -192,6 +194,6 @@ def get_branding_context(k: int = 3) -> str:
         filter={"doc_type": "BRAND_BOOK_TARA_2026-08-17_v2.5.pdf"}
     )
     if not results:
-        print("⚠️ Aucun chunk du brand-book trouvé. Vérifiez que ingetion_branding.py a été exécuté.")
+        #print("⚠️ Aucun chunk du brand-book trouvé. Vérifiez que ingetion_branding.py a été exécuté.")
         return ""
     return format_context(results)

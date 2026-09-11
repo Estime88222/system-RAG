@@ -21,7 +21,17 @@ from ingestion.web_scraper import (
 # Cibler la zone publique du site uniquement.
 # Les pages /app, /login, /collections sont des écrans d'authentification / shell applicatif,
 # et ne contiennent pas les informations utiles pour guider les utilisateurs.
-WEB_SOURCE = ["https://taramoney.com"]
+WEB_SOURCE = [
+    "https://taramoney.com",
+    "https://taramoney.com/diaspora",
+    "https://taramoney.com/createurs",
+    "https://taramoney.com/buyam-sellam",
+    "https://taramoney.com/developer",
+    "https://taramoney.com/liens-paiements",
+    "https://taramoney.com/transfert",
+    "https://taramoney.com/gift",
+]
+
 AUTHENTICATED_WEB_SOURCE = [
     "https://taramoney.com/app",
     "https://taramoney.com/app/collections",

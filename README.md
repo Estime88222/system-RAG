@@ -264,3 +264,21 @@ partir de `/app` et `/app/collections`. Si la session expire, renouveler la sess
 - [ ] Ingestion de contenu web (`WebBaseLoader` / `RecursiveUrlLoader`)
 - [ ] Intégration à la mini app Telegram
 - [ ] Passage à l'échelle (pgvector/Qdrant si le volume de documents augmente)
+
+mon_projet_rag/
+├── app/                        # ton pipeline actuel
+│   ├── main.py                 # FastAPI
+│   ├── retriever.py            # logique Chroma
+│   ├── generator.py            # appel DeepSeek
+│   └── embeddings.py           # Ollama
+│
+├── evaluation/                 # 👈 nouveau module, séparé du code applicatif
+│   ├── init__.py
+│   ├── metrics.py               # precision_at_k, recall_at_k, mrr, ndcg_at_k
+│   ├── retrieval_eval.py        # evaluate_retrieval() + get_retrieved_ids()
+│   ├── ragas_eval.py            # ton évaluation RAGAS (faithfulness, etc.)
+│   ├── test_set.json            # ton jeu de questions + relevant_docs annotés
+│   └── run_evaluation.py        # script exécutable qui lance tout et affiche/exporte les résultats
+│
+├── tests/                       # tests unitaires classiques (pytest)
+└── requirements.txt

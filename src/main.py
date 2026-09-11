@@ -74,7 +74,7 @@ def ask(question: str, top_k: int = 5) -> str:
 
 if __name__ == "__main__":
 
-    #run_ingestion()
+    run_ingestion()
 
     question = input("Pose ta question : ")
     reponse = ask(question)
